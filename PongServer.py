@@ -69,11 +69,11 @@ class Game(object):
     def add_player(self,playerSocket,foreignHost,foreignPort):
         if not self.player1:
             self.player1 = playerSocket
-            self.player1.send(PLAYER1)
+            self.player1.send(PLAYER1+EOT)
             print "Game %d added player %s:%s as Player 1" % (self.ID,foreignHost,foreignPort)
         elif not self.player2:
             self.player2 = playerSocket
-            self.player2.send(PLAYER2)
+            self.player2.send(PLAYER2+EOT)
             print "Game %d added player %s:%s as Player 2" % (self.ID,foreignHost,foreignPort)
             
         else:
@@ -88,24 +88,31 @@ class Game(object):
         # closes the pygame window
         try:
             message = player.recv(BUFFER_SIZE)
+            # Message is an empty string, player has left
+            if not message:
+                self.disconnect_player(player)
+                return
+	    message = message.rstrip()
+	    while (message[-1] != EOT):
+		message += player.recv(BUFFER_SIZE)
+	    message = message[:-1]
         except socket.error, errorMessage:
             self.disconnect_player(player)
             print errorMessage
             return
 
-        # Message is an empty string, player has left
-        if not message:
-            self.disconnect_player(player)
-            return
 
-        # Message is asking whether there are enough players
-        message = message.rstrip()
+
+	# Clean up the message
+	message = message.rstrip()
+        
+	# Message is asking whether there are enough players
         print message
         if message == POLL:
             if self.enoughPlayers:
-                player.send(YES)
+                player.send(YES+EOT)
             else:
-                player.send(NO)
+                player.send(NO+EOT)
             return
         
         # Otherwise the message is a position
@@ -118,15 +125,15 @@ class Game(object):
             return
         else:
             if player == self.player1:
-                self.paddle1PosY = float(position)
+                self.paddle1PosY = position
                 #print "Player 1, Game %02d says: %s" % (self.ID,position)
-                if self.player2: self.player2.send(message)
+                if self.player2: self.player2.send(message+EOT)
                 return
             
             if player == self.player2:
-                self.paddle2PosY = float(position)
+                self.paddle2PosY = position
                 #print "Player 2, Game %02d says: %s" % (self.ID,position)
-                if self.player1: self.player1.send(message)
+                if self.player1: self.player1.send(message+EOT)
                 return
 
             raise ValueError("Cannot process player for Game "+str(self.ID))

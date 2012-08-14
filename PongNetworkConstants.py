@@ -17,9 +17,10 @@ OPPONENT        = 11
 
 
 #Packets (512 character limit, but shoot for 4 characters)
-POLL = "poll"
-YES = "yes"
-NO = "no"
-DISCONNECTED = "disc"
-PLAYER1 = "player1"
-PLAYER2 = "player2"
+POLL 		= "poll"
+YES		= "yes"
+NO 		= "no"
+DISCONNECTED 	= "disc"
+PLAYER1 	= "player1"
+PLAYER2 	= "player2"
+EOT 		= '!'
