@@ -13,7 +13,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class SimplePong extends GraphicsProgram {
 
@@ -62,12 +63,13 @@ public class SimplePong extends GraphicsProgram {
 	private static final double YVEL = 3.0;
 
 	/**Make this a variable that you get passed in by the server */
-	private static final int PLAYER = 1;
-	private static final double LOCATION = 50;
+	private static String PLAYER;
+	private static int LOCATION;
 	public static Socket socket;
 
 	private static  OutputStream socketOutput;
 	private static  InputStream socketInput;
+	private static int Y;
 
 	/**Methods*/
 
@@ -90,9 +92,14 @@ public class SimplePong extends GraphicsProgram {
 
 	}
 
-	private void moveBall() {
+	private void moveBall(int y) {
+		String locReadCon = "";
+		int n = 0;
+		byte[] locRead = new byte[512];
+
 
 		while (true) {
+			paddleControl( LOCATION);
 
 			if (ball.getX() >= (WIDTH - 2*BALL_RADIUS ) ) break; //
 			if (ball.getX() <= (2*BALL_RADIUS)) break;
@@ -106,6 +113,61 @@ public class SimplePong extends GraphicsProgram {
 				vy=-vy;
 			}
 			pause(MEDIUM);
+
+
+			if (PLAYER.equals("player1")){
+
+				if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
+					paddle1.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
+
+
+					//we also have to continously write this location to the server
+				}
+
+			}else{
+				if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
+					paddle2.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
+					try {
+						socketOutput.write(Y);//not sure if it truncates after 255
+
+
+					} catch (IOException ex) {
+						// TODO Auto-generated catch block
+						ex.printStackTrace();
+					}
+
+				}
+			}
+
+			try {
+				//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+				//loc.putInt(e.getY());
+				String yloc = "" + Y+ "!";
+				byte[] loc = yloc.getBytes();
+				socketOutput.write(loc);//not sure if it truncates after 255
+				socketOutput.flush();
+
+				while (locRead[n] != '!'){
+					
+					socketInput.read(locRead);
+
+					locReadCon = locReadCon + locRead[n];
+					n++;
+
+
+				}
+				LOCATION = Integer.parseInt(locReadCon);
+
+			} catch (IOException ex) {
+				// TODO Auto-generated catch block
+				ex.printStackTrace();
+			}
+
+
+
+
+
+
 		}
 
 	}
@@ -144,8 +206,8 @@ public class SimplePong extends GraphicsProgram {
 
 	}
 
-	private void paddleControl(int player, double location) {
-		if (player ==1){
+	private void paddleControl( double location) {
+		if (PLAYER.equals("player1")){
 			paddle2.setLocation ( WIDTH - PADDLE_X_OFFSET , location-PADDLE_HEIGHT/2);
 
 		}else {
@@ -155,31 +217,32 @@ public class SimplePong extends GraphicsProgram {
 	}
 
 	private boolean playersReady() {
-		String pollStr = new String("poll");//for output
+		String pollStr = new String("poll"+'!');//for output
 
 		byte [] poll = pollStr.getBytes();//for output
-		
+
 		byte[] b = new byte[512]  ; //for input
 
-		byte[] player = new byte[512] ;
-		                    
+
+
 		try {
 			socketOutput.write(poll);
+			socketOutput.flush();
 
-			socketInput.read(player);
+
 			socketInput.read(b);
-			
+
 			String response = new String(b);
 			System.out.print(response);
 			System.out.print("\n");
-			
+
 			String x = response.substring(0,3);
 			if (x.equals("yes")){
 				return true;
 			}else{
 				System.out.print("false num 1");
 				return false;
-				
+
 			}
 
 		} catch (IOException e) {
@@ -188,13 +251,35 @@ public class SimplePong extends GraphicsProgram {
 		}
 		return false;
 	}
-	
+
 	public void init () {
+		byte[] player = new byte[512] ;
+
 		try {
 			socket = new Socket("10.30.32.54", 50001);
 			socketOutput = socket.getOutputStream();
 			socketInput = socket.getInputStream();
 			System.out.print("try");
+
+			int n = 0;
+			String playerCon = "";
+			int bytesRead = 0;
+			
+			do {
+				
+				bytesRead =  socketInput.read(player);
+
+				for (int i = 0; i< bytesRead; i++){
+					playerCon = playerCon + (char)player[i];
+				}
+				n += bytesRead;
+			} while (playerCon.charAt(n-1) != '!');
+			
+			PLAYER = playerCon;
+			
+			
+			System.out.print("Initial Player Designation");
+
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -211,32 +296,29 @@ public class SimplePong extends GraphicsProgram {
 
 	//Creates a mouse event that responds to a moving mouse. Center of paddle moves with mouse
 	public void mouseMoved (MouseEvent e) {
-		if (e.getY() <= HEIGHT-(PADDLE_HEIGHT/2) && e.getY() >= PADDLE_HEIGHT/2){
-			paddle1.setLocation ( PADDLE_X_OFFSET , e.getY()-PADDLE_HEIGHT/2);
-			//byte[] loc = (byte[]) e.getY();
-		}
+		Y = e.getY();
 
-		//need to do something with paddle 2
 	}
 
-	public void run() {
-		//winner of round clicks to start round
+	public void run () {
+
 		while(true) {
 
+
 			if (playersReady()){
-				System.out.print("true");
+				System.out.print("Players are ready: true");
 				while(true) {
 					//countdown
 					try {
 						Thread.sleep(4000);
-					} catch (InterruptedException e) {
+					} catch (InterruptedException ex) {
 						// TODO Auto-generated catch block
-						e.printStackTrace();
+						ex.printStackTrace();
 					} 
 
-					paddleControl(PLAYER, LOCATION);
+
 					createBall ();
-					moveBall();
+					moveBall(Y);
 					remove (ball); //What to do after a player scores
 				}
 
