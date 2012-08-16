@@ -167,41 +167,74 @@ public class SimplePong extends GraphicsProgram {
 			if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
 				paddle1.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
 			}
+			
+			try {
+				//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+				//loc.putInt(e.getY());
+				String yloc = "" + Y+ "!";
+				byte[] loc = yloc.getBytes();
+				socketOutput.write(loc);//not sure if it truncates after 255
+				socketOutput.flush();
+				
+				do {
+					bytesRead =  socketInput.read(locRead);
+
+					for (int i = 0; i< bytesRead; i++){
+						locReadCon = locReadCon + (char)locRead[i];
+					}
+
+					n += bytesRead;
+
+				} while (locReadCon.charAt(n-1) != '!');
+
+				//Issue here due to double packets
+				LOCATION = Integer.parseInt(locReadCon.substring(0, locReadCon.indexOf('!')));
+				//System.out.println("Passive Player Location");
+
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
 		}else {
 			paddle1.setLocation ( PADDLE_X_OFFSET , LOCATION-PADDLE_HEIGHT/2);
 			if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
 				paddle2.setLocation ( WIDTH - PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
 			}	
-		}
-
-
-
-		try {
-			//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-			//loc.putInt(e.getY());
-			String yloc = "" + Y+ "!";
-			byte[] loc = yloc.getBytes();
-			socketOutput.write(loc);//not sure if it truncates after 255
-			socketOutput.flush();
 			
-			do {
-				bytesRead =  socketInput.read(locRead);
+			try {
+				//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+				//loc.putInt(e.getY());
+				String yloc = "" + Y+ "!";
+				byte[] loc = yloc.getBytes();
+			
+				
+				do {
+					bytesRead =  socketInput.read(locRead);
 
-				for (int i = 0; i< bytesRead; i++){
-					locReadCon = locReadCon + (char)locRead[i];
-				}
+					for (int i = 0; i< bytesRead; i++){
+						locReadCon = locReadCon + (char)locRead[i];
+					}
 
-				n += bytesRead;
+					n += bytesRead;
 
-			} while (locReadCon.charAt(n-1) != '!');
+				} while (locReadCon.charAt(n-1) != '!');
 
-			//Issue here due to double packets
-			LOCATION = Integer.parseInt(locReadCon.substring(0, locReadCon.indexOf('!')));
-			//System.out.println("Passive Player Location");
+				//Issue here due to double packets
+				LOCATION = Integer.parseInt(locReadCon.substring(0, locReadCon.indexOf('!')));
+				//System.out.println("Passive Player Location");
+				
+				socketOutput.write(loc);//not sure if it truncates after 255
+				socketOutput.flush();
 
-		} catch (IOException ex) {
-			ex.printStackTrace();
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
+			
+			
 		}
+
+
+
+		
 
 
 	}
