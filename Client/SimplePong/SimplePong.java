@@ -85,7 +85,7 @@ public class SimplePong extends GraphicsProgram {
 	private void createBall() {
 		ball.setFilled(true);
 		ball.setColor(Color.DARK_GRAY);
-		vy=-2;
+		vy=-3;
 		vx=-3;
 		ball.setLocation(WIDTH/2-BALL_RADIUS, HEIGHT/2 -BALL_RADIUS);
 		add (ball);
@@ -142,7 +142,7 @@ public class SimplePong extends GraphicsProgram {
 			if (ball.getY() > HEIGHT - 2*BALL_RADIUS){
 				vy=-vy;
 			}
-			pause(HARD);
+			//pause(EASY);
 
 			paddleControl( );
 
