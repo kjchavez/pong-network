@@ -49,7 +49,6 @@ public class SimplePong extends GraphicsProgram {
 	/** Offset of the paddle up from the sides */
 	private static final int PADDLE_X_OFFSET = 30;
 
-
 	/** The Game Ball */
 	private GOval ball = new GOval (2*BALL_RADIUS,2*BALL_RADIUS);
 
@@ -62,7 +61,7 @@ public class SimplePong extends GraphicsProgram {
 	/** Y Velocity Of Ball */
 	private static final double YVEL = 3.0;
 
-	/**Make this a variable that you get passed in by the server */
+	/** Server Related Variables */
 	private static String PLAYER;
 	private static int LOCATION;
 	public static Socket socket;
@@ -70,7 +69,8 @@ public class SimplePong extends GraphicsProgram {
 	private static  OutputStream socketOutput;
 	private static  InputStream socketInput;
 	private static int Y;
-
+	/********************************************************************************/
+	/********************************************************************************/
 	/**Methods*/
 
 	private void createPaddles (){
@@ -78,7 +78,7 @@ public class SimplePong extends GraphicsProgram {
 		paddle1.setColor(Color.BLACK);
 		add (paddle1);
 		paddle2.setFilled(true);
-		paddle2.setColor(Color.BLACK);
+		paddle2.setColor(Color.RED);
 		add (paddle2);
 	}
 
@@ -89,86 +89,6 @@ public class SimplePong extends GraphicsProgram {
 		vx=-3;
 		ball.setLocation(WIDTH/2-BALL_RADIUS, HEIGHT/2 -BALL_RADIUS);
 		add (ball);
-
-	}
-
-	private void moveBall(int y) {
-		String locReadCon = "";
-		int n = 0;
-		byte[] locRead = new byte[512];
-
-
-		while (true) {
-			paddleControl( LOCATION);
-
-			if (ball.getX() >= (WIDTH - 2*BALL_RADIUS ) ) break; //
-			if (ball.getX() <= (2*BALL_RADIUS)) break;
-			checkCollision ();
-			ball.move(vx, vy);
-
-			if (ball.getY() < 0) {
-				vy=-vy;
-			}
-			if (ball.getY() > HEIGHT - 2*BALL_RADIUS){
-				vy=-vy;
-			}
-			pause(MEDIUM);
-
-
-			if (PLAYER.equals("player1")){
-
-				if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
-					paddle1.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
-
-
-					//we also have to continously write this location to the server
-				}
-
-			}else{
-				if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
-					paddle2.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
-					try {
-						socketOutput.write(Y);//not sure if it truncates after 255
-
-
-					} catch (IOException ex) {
-						// TODO Auto-generated catch block
-						ex.printStackTrace();
-					}
-
-				}
-			}
-
-			try {
-				//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-				//loc.putInt(e.getY());
-				String yloc = "" + Y+ "!";
-				byte[] loc = yloc.getBytes();
-				socketOutput.write(loc);//not sure if it truncates after 255
-				socketOutput.flush();
-
-				while (locRead[n] != '!'){
-					
-					socketInput.read(locRead);
-
-					locReadCon = locReadCon + locRead[n];
-					n++;
-
-
-				}
-				LOCATION = Integer.parseInt(locReadCon);
-
-			} catch (IOException ex) {
-				// TODO Auto-generated catch block
-				ex.printStackTrace();
-			}
-
-
-
-
-
-
-		}
 
 	}
 
@@ -206,43 +126,107 @@ public class SimplePong extends GraphicsProgram {
 
 	}
 
-	private void paddleControl( double location) {
-		if (PLAYER.equals("player1")){
-			paddle2.setLocation ( WIDTH - PADDLE_X_OFFSET , location-PADDLE_HEIGHT/2);
+	private void moveBall(int y) {
 
-		}else {
-			paddle1.setLocation ( PADDLE_X_OFFSET , location-PADDLE_HEIGHT/2);
+		while (true) {
+			//System.out.println("Ball Moving");
+
+			if (ball.getX() >= (WIDTH - 2*BALL_RADIUS ) ) break; //
+			if (ball.getX() <= (2*BALL_RADIUS)) break;
+			checkCollision ();
+			ball.move(vx, vy);
+
+			if (ball.getY() < 0) {
+				vy=-vy;
+			}
+			if (ball.getY() > HEIGHT - 2*BALL_RADIUS){
+				vy=-vy;
+			}
+			pause(HARD);
+
+			paddleControl( );
+
+
+
 		}
-		//trying to communicate with server
+
 	}
 
-	private boolean playersReady() {
-		String pollStr = new String("poll"+'!');//for output
 
-		byte [] poll = pollStr.getBytes();//for output
 
-		byte[] b = new byte[512]  ; //for input
+	private void paddleControl() {
+		//System.out.println("Entered Paddle Control");
+		String locReadCon = "";
+		int n = 0;
+		byte[] locRead = new byte[512];
+		int bytesRead = 0;
+
+
+		if (PLAYER.equals("player1!")){ //currently is never player 1
+			paddle2.setLocation (  WIDTH -PADDLE_X_OFFSET , LOCATION-PADDLE_HEIGHT/2);
+			if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
+				paddle1.setLocation ( PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
+			}
+		}else {
+			paddle1.setLocation ( PADDLE_X_OFFSET , LOCATION-PADDLE_HEIGHT/2);
+			if (Y <= HEIGHT-(PADDLE_HEIGHT/2) && Y >= PADDLE_HEIGHT/2){
+				paddle2.setLocation ( WIDTH - PADDLE_X_OFFSET , Y-PADDLE_HEIGHT/2);
+			}	
+		}
 
 
 
 		try {
+			//ByteBuffer loc = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+			//loc.putInt(e.getY());
+			String yloc = "" + Y+ "!";
+			byte[] loc = yloc.getBytes();
+			socketOutput.write(loc);//not sure if it truncates after 255
+			socketOutput.flush();
+			
+			do {
+				bytesRead =  socketInput.read(locRead);
+
+				for (int i = 0; i< bytesRead; i++){
+					locReadCon = locReadCon + (char)locRead[i];
+				}
+
+				n += bytesRead;
+
+			} while (locReadCon.charAt(n-1) != '!');
+
+			//Issue here due to double packets
+			LOCATION = Integer.parseInt(locReadCon.substring(0, locReadCon.indexOf('!')));
+			//System.out.println("Passive Player Location");
+
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+
+
+	}
+
+	private boolean playersReady() {
+		String pollStr = new String("poll"+'!');//for output
+		byte [] poll = pollStr.getBytes();//for output
+		byte[] b = new byte[512]  ; //for input
+
+		try {
 			socketOutput.write(poll);
 			socketOutput.flush();
-
-
 			socketInput.read(b);
 
 			String response = new String(b);
-			System.out.print(response);
-			System.out.print("\n");
+			//System.out.print(response);
+			//System.out.print("\n");
 
 			String x = response.substring(0,3);
-			if (x.equals("yes")){
+
+			if (x.equals("yes")){ //exclamation needed?
 				return true;
 			}else{
-				System.out.print("false num 1");
+				//System.out.print("false return # 1");
 				return false;
-
 			}
 
 		} catch (IOException e) {
@@ -251,33 +235,37 @@ public class SimplePong extends GraphicsProgram {
 		}
 		return false;
 	}
-
+	/********************************************************************************/
+	/********************************************************************************/
 	public void init () {
-		byte[] player = new byte[512] ;
+		//empty initializations of local variables
+		byte[] player = new byte[512] ; 
+		int n = 0;
+		String playerConcat = "";
+		int bytesRead = 0;
+		LOCATION = APPLICATION_HEIGHT/2 - PADDLE_HEIGHT/2;
 
 		try {
-			socket = new Socket("10.30.32.54", 50001);
-			socketOutput = socket.getOutputStream();
+			System.out.print("Trying to Connect");
+			socket = new Socket("10.30.32.54", 50001); //connect to socket
+			socketOutput = socket.getOutputStream(); //initialize output and input streams
 			socketInput = socket.getInputStream();
-			System.out.print("try");
+			System.out.print("Socket Initialization Complete");
 
-			int n = 0;
-			String playerCon = "";
-			int bytesRead = 0;
-			
+			//Reading in of Player
 			do {
-				
 				bytesRead =  socketInput.read(player);
 
 				for (int i = 0; i< bytesRead; i++){
-					playerCon = playerCon + (char)player[i];
+					playerConcat = playerConcat + (char)player[i];
 				}
+
 				n += bytesRead;
-			} while (playerCon.charAt(n-1) != '!');
-			
-			PLAYER = playerCon;
-			
-			
+
+			} while (playerConcat.charAt(n-1) != '!');
+
+			PLAYER = playerConcat;
+
 			System.out.print("Initial Player Designation");
 
 		} catch (UnknownHostException e) {
@@ -289,28 +277,25 @@ public class SimplePong extends GraphicsProgram {
 			e.printStackTrace();
 		}
 
-
 		createPaddles ();
 		addMouseListeners ();
 	}
 
-	//Creates a mouse event that responds to a moving mouse. Center of paddle moves with mouse
 	public void mouseMoved (MouseEvent e) {
 		Y = e.getY();
-
 	}
 
 	public void run () {
 
 		while(true) {
 
-
 			if (playersReady()){
-				System.out.print("Players are ready: true");
+				//System.out.print("Players are ready: true");
+
 				while(true) {
 					//countdown
 					try {
-						Thread.sleep(4000);
+						Thread.sleep(1000);
 					} catch (InterruptedException ex) {
 						// TODO Auto-generated catch block
 						ex.printStackTrace();
@@ -318,6 +303,7 @@ public class SimplePong extends GraphicsProgram {
 
 
 					createBall ();
+					//System.out.println("Ball is Created");
 					moveBall(Y);
 					remove (ball); //What to do after a player scores
 				}
